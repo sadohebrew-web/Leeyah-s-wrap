@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Leeyah's Wrap — Admin</title>
+<style>
+  :root{
+    --ink:#1c1d1f;
+    --ink-soft:#6b6864;
+    --cream:#faf6f0;
+    --stone:#f0ebe3;
+    --stone-deep:#e6ddd0;
+    --dye-deep:#660258;
+    --charcoal:#2a2620;
+    --danger:#b3261e;
+    --danger-bg:#fbeceb;
+    --ok:#1e7a3c;
+    --ok-bg:#eaf6ee;
+    --border:rgba(28,29,31,0.12);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    background:var(--stone);
+    color:var(--ink);
+  }
+  .hidden{display:none !important}
+
+  /* ---------- Login ---------- */
+  #login-view{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+  .login-card{
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:36px 32px;
+    width:100%;
+    max-width:360px;
+    box-shadow:0 20px 50px -20px rgba(28,29,31,0.25);
+  }
+  .login-card h1{
+    font-size:20px;
+    margin:0 0 4px;
+  }
+  .login-card p.sub{
+    color:var(--ink-soft);
+    font-size:13px;
+    margin:0 0 24px;
+  }
+  label{
+    display:block;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+    font-weight:600;
+  }
+  input[type=email],input[type=password],input[type=text],input[type=number],
+  textarea,select{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    font-size:14px;
+    font-family:inherit;
+    background:var(--cream);
+    color:var(--ink);
+    margin-bottom:16px;
+  }
+  input:focus,textarea:focus,select:focus{
+    outline:2px solid var(--dye-deep);
+    outline-offset:1px;
+  }
+  button{
+    font-family:inherit;
+    cursor:pointer;
+  }
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    padding:10px 18px;
+    border-radius:6px;
+    border:1px solid transparent;
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:.02em;
+  }
+  .btn-primary{
+    background:var(--dye-deep);
+    color:#fff;
+    width:100%;
+  }
+  .btn-primary:hover{background:var(--charcoal)}
+  .btn-secondary{
+    background:#fff;
+    border-color:var(--border);
+    color:var(--ink);
+  }
+  .btn-secondary:hover{background:var(--stone)}
+  .btn-danger{
+    background:var(--danger-bg);
+    color:var(--danger);
+  }
+  .btn-danger:hover{background:#f6dcda}
+  .btn-sm{padding:6px 12px;font-size:12px}
+  .error-msg{
+    background:var(--danger-bg);
+    color:var(--danger);
+    font-size:13px;
+    padding:10px 12px;
+    border-radius:6px;
+    margin-bottom:16px;
+  }
+
+  /* ---------- Dashboard shell ---------- */
+  #dashboard-view{min-height:100vh}
+  header.topbar{
+    background:var(--charcoal);
+    color:var(--cream);
+    padding:16px 28px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  header.topbar h1{
+    font-size:16px;
+    margin:0;
+    letter-spacing:.03em;
+  }
+  header.topbar .who{
+    font-size:12px;
+    color:rgba(250,246,240,0.6);
+    margin-top:2px;
+  }
+  main{
+    max-width:1200px;
+    margin:0 auto;
+    padding:28px;
+  }
+  .toolbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:20px;
+    flex-wrap:wrap;
+  }
+  .toolbar input[type=text]{
+    margin:0;
+    max-width:280px;
+  }
+  .card{
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:8px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+  }
+  thead th{
+    text-align:left;
+    padding:12px 16px;
+    background:var(--stone);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--ink-soft);
+    border-bottom:1px solid var(--border);
+    white-space:nowrap;
+  }
+  tbody td{
+    padding:12px 16px;
+    border-bottom:1px solid var(--border);
+    vertical-align:top;
+  }
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:rgba(102,2,88,0.03)}
+  .prod-name{font-weight:600}
+  .prod-slug{color:var(--ink-soft);font-size:12px}
+  .tag-pill{
+    display:inline-block;
+    background:var(--stone-deep);
+    color:var(--ink);
+    font-size:11px;
+    padding:2px 8px;
+    border-radius:20px;
+    margin:1px 3px 1px 0;
+  }
+  .row-actions{display:flex;gap:6px}
+  .empty-state{
+    text-align:center;
+    padding:60px 20px;
+    color:var(--ink-soft);
+  }
+  .loading-state{
+    text-align:center;
+    padding:60px 20px;
+    color:var(--ink-soft);
+  }
+  tr.is-off{background:rgba(28,29,31,0.025)}
+  tr.is-off .prod-name{color:var(--ink-soft)}
+
+  /* ---------- ON/OFF toggle switch ---------- */
+  .switch{
+    position:relative;
+    display:inline-block;
+    width:40px;
+    height:22px;
+    flex-shrink:0;
+  }
+  .switch input{
+    opacity:0;
+    width:0;
+    height:0;
+    margin:0;
+  }
+  .switch .slider{
+    position:absolute;
+    cursor:pointer;
+    inset:0;
+    background:#ccc;
+    transition:.15s;
+    border-radius:22px;
+  }
+  .switch .slider::before{
+    position:absolute;
+    content:"";
+    height:16px;
+    width:16px;
+    left:3px;
+    bottom:3px;
+    background:#fff;
+    transition:.15s;
+    border-radius:50%;
+    box-shadow:0 1px 3px rgba(0,0,0,0.3);
+  }
+  .switch input:checked + .slider{background:var(--dye-deep)}
+  .switch input:checked + .slider::before{transform:translateX(18px)}
+  .switch input:disabled + .slider{opacity:.5;cursor:default}
+  .status-cell{display:flex;align-items:center;gap:8px}
+  .status-label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);min-width:28px}
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(28,29,31,0.5);
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding:32px 16px;
+    overflow-y:auto;
+    z-index:100;
+  }
+  .modal{
+    background:#fff;
+    border-radius:10px;
+    width:100%;
+    max-width:640px;
+    padding:28px;
+    margin-bottom:32px;
+  }
+  .modal h2{
+    margin:0 0 4px;
+    font-size:18px;
+  }
+  .modal p.sub{
+    color:var(--ink-soft);
+    font-size:13px;
+    margin:0 0 20px;
+  }
+  .grid-2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0 16px;
+  }
+  fieldset{
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:14px 16px 4px;
+    margin:0 0 18px;
+  }
+  legend{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--ink-soft);
+    font-weight:600;
+    padding:0 6px;
+  }
+  .hint{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    margin:-12px 0 16px;
+  }
+  .modal-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:8px;
+    padding-top:16px;
+    border-top:1px solid var(--border);
+  }
+  .review-row{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    padding:10px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .review-row:last-child{border-bottom:none}
+  .review-row .rmeta{flex:1;font-size:13px}
+  .review-row .rmeta b{font-size:13px}
+  .review-row .rstars{color:var(--dye-deep);font-size:12px}
+  .review-add-row{
+    display:grid;
+    grid-template-columns:1fr 70px 90px;
+    gap:8px;
+    align-items:end;
+    margin-top:10px;
+  }
+  .review-add-row label{margin-bottom:4px}
+  .review-add-row input,.review-add-row textarea{margin-bottom:0}
+
+  /* ---------- Toasts ---------- */
+  #toast-wrap{
+    position:fixed;
+    bottom:20px;
+    right:20px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    z-index:200;
+  }
+  .toast{
+    background:var(--charcoal);
+    color:#fff;
+    padding:12px 18px;
+    border-radius:6px;
+    font-size:13px;
+    box-shadow:0 10px 30px -10px rgba(0,0,0,0.4);
+    max-width:320px;
+  }
+  .toast.ok{background:var(--ok)}
+  .toast.err{background:var(--danger)}
+
+  /* ---------- Mobile (phone) ---------- */
+  @media (max-width: 640px){
+    main{padding:16px}
+    header.topbar{padding:14px 16px}
+    header.topbar h1{font-size:14px}
+    .toolbar{gap:10px}
+    .toolbar input[type=text]{max-width:none;flex:1 1 auto}
+    .btn{padding:10px 14px}
+    table{font-size:12.5px}
+    thead th,tbody td{padding:10px}
+    .modal{padding:20px 16px;border-radius:8px}
+    .modal-backdrop{padding:0}
+    .grid-2{grid-template-columns:1fr}
+    .review-add-row{grid-template-columns:1fr}
+    .toast{max-width:calc(100vw - 32px)}
+    #toast-wrap{left:16px;right:16px;bottom:16px}
+  }
+</style>
+</head>
+<body>
+
+  <!-- ===================== LOGIN ===================== -->
+  <div id="login-view">
+    <form class="login-card" id="login-form">
+      <h1>Leeyah's Wrap</h1>
+      <p class="sub">Admin dashboard — sign in to manage products</p>
+      <div id="login-error" class="error-msg hidden"></div>
+      <label for="login-email">Email</label>
+      <input type="email" id="login-email" required autocomplete="username">
+      <label for="login-password">Password</label>
+      <input type="password" id="login-password" required autocomplete="current-password">
+      <button type="submit" class="btn btn-primary" id="login-btn">Sign In</button>
+    </form>
+  </div>
+
+  <!-- ===================== DASHBOARD ===================== -->
+  <div id="dashboard-view" class="hidden">
+    <header class="topbar">
+      <div>
+        <h1>Leeyah's Wrap — Admin</h1>
+        <div class="who" id="who-label"></div>
+      </div>
+      <button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
+    </header>
+
+    <main>
+      <div class="toolbar">
+        <input type="text" id="search-input" placeholder="Search products…">
+        <button class="btn btn-primary" id="add-product-btn">+ Add Product</button>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Product</th>
+              <th>Category</th>
+              <th>Price</th>
+              <th>Rating</th>
+              <th>Tags</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="product-tbody">
+            <tr><td colspan="7" class="loading-state">Loading products…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===================== PRODUCT MODAL (templated at runtime) ===================== -->
+  <div id="modal-root"></div>
+
+  <!-- datalist option pools, populated at runtime -->
+  <datalist id="photo-keys"></datalist>
+  <datalist id="category-values"></datalist>
+  <datalist id="collection-values"></datalist>
+  <datalist id="material-values"></datalist>
+
+  <div id="toast-wrap"></div>
+
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const SUPABASE_URL = "https://subrpdkevbynozzxszwo.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_LRFyJTbNRt1IykR6b8r8Mg_42s34kzy";
+const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+// Known image keys already baked into the storefront's code. Photos are not
+// stored in Supabase — these are just the lookup keys the live site already
+// knows how to render. Picking one of these here will show correctly on the
+// site; typing something new will not show an image until that image is
+// added to the site's code separately.
+const KNOWN_PHOTO_KEYS = [
+  "innerCap","magneticStud","nonSnagPin","shadowJersey","paddedPrayerMat","pashminaScarf",
+  "printedChiffon","regularPrayerMat","rhinestoneBrooch","scarfHanger","crinkleScarf",
+  "adireChiffon","twoInOneJersey","alQuran","armSleeve","cottonPleated","counter","giftBox",
+  "heartBrooch","hookPin","uaeJerseyScarf","chiffonScarf","danglingPin","discPin","jerseyScarf",
+  "popcornScarf","crinkleScarfPhoto2","crinkleScarfPhoto3","hookPinPhoto2","innerCapPhoto2",
+  "jerseyScarfPhoto2","leopardScarf","magneticStudPhoto2","nonSnagPinPhoto2","nonSnagPinPhoto3",
+  "ombreScarf","shadowJerseyPhoto2","pashminaScarfPhoto2","pashminaScarfPhoto3","pashminaScarfPhoto4",
+  "twoInOneJerseyPhoto2","cashmereScarf","chiffonScarfPhoto2","chiffonScarfPhoto3",
+  "chiffonScarfBundlePhoto","chiffonScarfPhoto4","vintageScarf","vintageScarfPhoto2",
+  "printedScarfNew","printedScarfNewPhoto2","armSleevePhoto2","thickArmSleeve","straightDiscPin"
+];
+const KNOWN_CATEGORIES = ["Accessories","Al-Qurans","Arm Sleeves","Inner Caps","Prayer Mats","Scarves"];
+const KNOWN_COLLECTIONS = ["Earth Tones","Everyday","Finishing Touches","Jewel Tones","The Marble Edit"];
+const KNOWN_MATERIALS = ["Cashmere","Chiffon","Cotton Voile","Mixed","Silk"];
+
+document.getElementById("photo-keys").innerHTML = KNOWN_PHOTO_KEYS.map(k => `<option value="${k}">`).join("");
+document.getElementById("category-values").innerHTML = KNOWN_CATEGORIES.map(k => `<option value="${k}">`).join("");
+document.getElementById("collection-values").innerHTML = KNOWN_COLLECTIONS.map(k => `<option value="${k}">`).join("");
+document.getElementById("material-values").innerHTML = KNOWN_MATERIALS.map(k => `<option value="${k}">`).join("");
+
+let allProducts = [];
+let currentSearch = "";
+
+// ---------------------------------------------------------------- utilities
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+function toast(message, kind) {
+  const wrap = document.getElementById("toast-wrap");
+  const el = document.createElement("div");
+  el.className = "toast" + (kind ? " " + kind : "");
+  el.textContent = message;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+function arrToText(arr) {
+  return Array.isArray(arr) ? arr.join(", ") : "";
+}
+function textToArr(text) {
+  return String(text || "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+function slugify(text) {
+  return String(text || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+// ------------------------------------------------------------------- auth
+// onAuthStateChange fires immediately with the current session on load,
+// then again on every future sign-in/sign-out — so this alone is the
+// single source of truth for which screen is shown.
+supabase.auth.onAuthStateChange((_event, session) => {
+  if (session) showDashboard(session);
+  else showLogin();
+});
+
+function showLogin() {
+  document.getElementById("login-view").classList.remove("hidden");
+  document.getElementById("dashboard-view").classList.add("hidden");
+}
+
+function showDashboard(session) {
+  document.getElementById("login-view").classList.add("hidden");
+  document.getElementById("dashboard-view").classList.remove("hidden");
+  document.getElementById("who-label").textContent = "Signed in as " + (session?.user?.email || "");
+  loadProducts();
+}
+
+document.getElementById("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+  const errBox = document.getElementById("login-error");
+  const btn = document.getElementById("login-btn");
+  errBox.classList.add("hidden");
+  btn.disabled = true;
+  btn.textContent = "Signing in…";
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  btn.disabled = false;
+  btn.textContent = "Sign In";
+  if (error) {
+    errBox.textContent = error.message === "Invalid login credentials"
+      ? "Incorrect email or password."
+      : error.message;
+    errBox.classList.remove("hidden");
+  }
+});
+
+document.getElementById("logout-btn").addEventListener("click", async () => {
+  await supabase.auth.signOut();
+});
+
+// --------------------------------------------------------------- products
+async function loadProducts() {
+  const tbody = document.getElementById("product-tbody");
+  tbody.innerHTML = `<tr><td colspan="6" class="loading-state">Loading products…</td></tr>`;
+  const { data, error } = await supabase
+    .from("products")
+    .select("*, reviews:product_reviews(*)")
+    .order("id");
+  if (error) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Couldn't load products — ${esc(error.message)}</td></tr>`;
+    toast("Failed to load products: " + error.message, "err");
+    return;
+  }
+  allProducts = data || [];
+  renderTable();
+}
+
+function renderTable() {
+  const tbody = document.getElementById("product-tbody");
+  const q = currentSearch.trim().toLowerCase();
+  const rows = allProducts.filter(p =>
+    !q ||
+    p.name.toLowerCase().includes(q) ||
+    p.slug.toLowerCase().includes(q) ||
+    p.category.toLowerCase().includes(q) ||
+    p.collection.toLowerCase().includes(q)
+  );
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">No products found.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(p => {
+    const isOn = p.is_active !== false;
+    return `
+    <tr class="${isOn ? "" : "is-off"}">
+      <td>
+        <div class="status-cell">
+          <label class="switch">
+            <input type="checkbox" data-toggle="${esc(p.id)}" ${isOn ? "checked" : ""}>
+            <span class="slider"></span>
+          </label>
+          <span class="status-label">${isOn ? "On" : "Off"}</span>
+        </div>
+      </td>
+      <td>
+        <div class="prod-name">${esc(p.name)}</div>
+        <div class="prod-slug">${esc(p.slug)} · ${esc(p.id)}</div>
+      </td>
+      <td>${esc(p.category)}</td>
+      <td>${formatPrice(p.price)}${p.compare_at_price ? `<br><span style="text-decoration:line-through;color:var(--ink-soft);font-size:12px">${formatPrice(p.compare_at_price)}</span>` : ""}</td>
+      <td>${esc(p.rating)} <span style="color:var(--ink-soft)">(${p.review_count})</span></td>
+      <td>${(p.tags || []).map(t => `<span class="tag-pill">${esc(t)}</span>`).join("")}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn btn-secondary btn-sm" data-edit="${esc(p.id)}">Edit</button>
+          <button class="btn btn-danger btn-sm" data-delete="${esc(p.id)}">Delete</button>
+        </div>
+      </td>
+    </tr>
+  `;
+  }).join("");
+
+  tbody.querySelectorAll("[data-edit]").forEach(btn => {
+    btn.addEventListener("click", () => openProductModal(btn.dataset.edit));
+  });
+  tbody.querySelectorAll("[data-delete]").forEach(btn => {
+    btn.addEventListener("click", () => deleteProduct(btn.dataset.delete));
+  });
+  tbody.querySelectorAll("[data-toggle]").forEach(input => {
+    input.addEventListener("change", () => toggleActive(input.dataset.toggle, input.checked, input));
+  });
+}
+
+async function toggleActive(id, nextValue, inputEl) {
+  inputEl.disabled = true;
+  const { error } = await supabase.from("products").update({ is_active: nextValue }).eq("id", id);
+  inputEl.disabled = false;
+
+  if (error) {
+    inputEl.checked = !nextValue; // revert the switch visually
+    toast("Couldn't update status: " + error.message, "err");
+    return;
+  }
+
+  const p = allProducts.find(x => x.id === id);
+  if (p) p.is_active = nextValue;
+  toast(nextValue ? "Product turned ON — visible on the site" : "Product turned OFF — hidden from the site", "ok");
+  renderTable();
+}
+
+function formatPrice(n) {
+  if (n === null || n === undefined) return "—";
+  return "₦" + Number(n).toLocaleString();
+}
+
+document.getElementById("search-input").addEventListener("input", (e) => {
+  currentSearch = e.target.value;
+  renderTable();
+});
+
+document.getElementById("add-product-btn").addEventListener("click", () => openProductModal(null));
+
+async function deleteProduct(id) {
+  const p = allProducts.find(x => x.id === id);
+  if (!confirm(`Delete "${p ? p.name : id}"? This can't be undone.`)) return;
+  const { error } = await supabase.from("products").delete().eq("id", id);
+  if (error) {
+    toast("Delete failed: " + error.message, "err");
+    return;
+  }
+  toast("Product deleted", "ok");
+  loadProducts();
+}
+
+// ----------------------------------------------------------- product modal
+function openProductModal(id) {
+  const isEdit = !!id;
+  const p = isEdit ? allProducts.find(x => x.id === id) : null;
+
+  const root = document.getElementById("modal-root");
+  root.innerHTML = `
+    <div class="modal-backdrop" id="modal-backdrop">
+      <div class="modal">
+        <h2>${isEdit ? "Edit Product" : "Add Product"}</h2>
+        <p class="sub">${isEdit ? "Changes save directly to Supabase." : "Creates a new row in the products table."}</p>
+
+        <form id="product-form">
+          <label class="switch" style="margin-bottom:6px">
+            <input type="checkbox" id="f-active" ${p?.is_active === false ? "" : "checked"}>
+            <span class="slider"></span>
+          </label>
+          <span style="font-size:13px;color:var(--ink-soft);margin-left:8px">Visible on the live site (ON)</span>
+          <div style="height:16px"></div>
+          <fieldset>
+            <legend>Basics</legend>
+            <div class="grid-2">
+              <div>
+                <label>Name</label>
+                <input type="text" id="f-name" required value="${esc(p?.name)}">
+              </div>
+              <div>
+                <label>Slug</label>
+                <input type="text" id="f-slug" required value="${esc(p?.slug)}">
+              </div>
+            </div>
+            <div class="grid-2">
+              <div>
+                <label>Price (₦)</label>
+                <input type="number" id="f-price" required min="0" step="1" value="${p?.price ?? ""}">
+              </div>
+              <div>
+                <label>Compare-at price (optional)</label>
+                <input type="number" id="f-compare" min="0" step="1" value="${p?.compare_at_price ?? ""}">
+              </div>
+            </div>
+            <div class="grid-2">
+              <div>
+                <label>Category</label>
+                <input type="text" id="f-category" list="category-values" required value="${esc(p?.category)}">
+              </div>
+              <div>
+                <label>Collection</label>
+                <input type="text" id="f-collection" list="collection-values" required value="${esc(p?.collection)}">
+              </div>
+            </div>
+            <div class="grid-2">
+              <div>
+                <label>Material</label>
+                <input type="text" id="f-material" list="material-values" required value="${esc(p?.material)}">
+              </div>
+              <div>
+                <label>Tags (comma-separated)</label>
+                <input type="text" id="f-tags" placeholder="new, bestseller, trending" value="${esc(arrToText(p?.tags))}">
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Color</legend>
+            <div class="grid-2" style="grid-template-columns:1fr 110px 110px">
+              <div>
+                <label>Color name</label>
+                <input type="text" id="f-colorname" required value="${esc(p?.color_name)}">
+              </div>
+              <div>
+                <label>Hex</label>
+                <input type="text" id="f-colorhex" required value="${esc(p?.color_hex)}">
+              </div>
+              <div>
+                <label>Hex (dark)</label>
+                <input type="text" id="f-colorhexdark" required value="${esc(p?.color_hex_dark)}">
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Photos</legend>
+            <label>Primary photo key</label>
+            <input type="text" id="f-photo" list="photo-keys" required value="${esc(p?.photo)}">
+            <label>Gallery photo keys (comma-separated, optional)</label>
+            <input type="text" id="f-photos" value="${esc(arrToText(p?.photos))}">
+            <p class="hint">These must match an image key already built into the site's code — pick from the suggestions. Typing a brand-new key won't show an image until that photo is added to the site separately.</p>
+          </fieldset>
+
+          <fieldset>
+            <legend>Details</legend>
+            <label>Dimensions</label>
+            <input type="text" id="f-dimensions" required value="${esc(p?.dimensions)}">
+            <label>Care instructions (comma-separated)</label>
+            <textarea id="f-care" rows="2" required>${esc(arrToText(p?.care))}</textarea>
+            <label>Description</label>
+            <textarea id="f-description" rows="3" required>${esc(p?.description)}</textarea>
+            <div class="grid-2">
+              <div>
+                <label>Rating (0–5)</label>
+                <input type="number" id="f-rating" min="0" max="5" step="0.1" required value="${p?.rating ?? 0}">
+              </div>
+              <div>
+                <label>Review count</label>
+                <input type="number" id="f-reviewcount" min="0" step="1" required value="${p?.review_count ?? 0}">
+              </div>
+            </div>
+          </fieldset>
+
+          ${isEdit ? renderReviewsFieldset(p) : ""}
+
+          <div id="modal-error" class="error-msg hidden"></div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="modal-cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="modal-save">${isEdit ? "Save Changes" : "Create Product"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("modal-cancel").addEventListener("click", closeModal);
+  document.getElementById("modal-backdrop").addEventListener("click", (e) => {
+    if (e.target.id === "modal-backdrop") closeModal();
+  });
+  document.getElementById("product-form").addEventListener("submit", (e) => saveProduct(e, id));
+
+  if (isEdit) wireReviewHandlers(p);
+}
+
+function closeModal() {
+  document.getElementById("modal-root").innerHTML = "";
+}
+
+async function saveProduct(e, id) {
+  e.preventDefault();
+  const errBox = document.getElementById("modal-error");
+  errBox.classList.add("hidden");
+
+  const payload = {
+    is_active: document.getElementById("f-active").checked,
+    name: document.getElementById("f-name").value.trim(),
+    slug: slugify(document.getElementById("f-slug").value),
+    price: Number(document.getElementById("f-price").value),
+    compare_at_price: document.getElementById("f-compare").value ? Number(document.getElementById("f-compare").value) : null,
+    category: document.getElementById("f-category").value.trim(),
+    collection: document.getElementById("f-collection").value.trim(),
+    material: document.getElementById("f-material").value.trim(),
+    tags: textToArr(document.getElementById("f-tags").value),
+    color_name: document.getElementById("f-colorname").value.trim(),
+    color_hex: document.getElementById("f-colorhex").value.trim(),
+    color_hex_dark: document.getElementById("f-colorhexdark").value.trim(),
+    photo: document.getElementById("f-photo").value.trim(),
+    photos: (() => { const arr = textToArr(document.getElementById("f-photos").value); return arr.length ? arr : null; })(),
+    dimensions: document.getElementById("f-dimensions").value.trim(),
+    care: textToArr(document.getElementById("f-care").value),
+    description: document.getElementById("f-description").value.trim(),
+    rating: Number(document.getElementById("f-rating").value),
+    review_count: Number(document.getElementById("f-reviewcount").value),
+  };
+
+  const btn = document.getElementById("modal-save");
+  btn.disabled = true;
+  btn.textContent = "Saving…";
+
+  let error;
+  if (id) {
+    ({ error } = await supabase.from("products").update(payload).eq("id", id));
+  } else {
+    payload.id = "p-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    ({ error } = await supabase.from("products").insert(payload));
+  }
+
+  btn.disabled = false;
+  btn.textContent = id ? "Save Changes" : "Create Product";
+
+  if (error) {
+    errBox.textContent = error.message;
+    errBox.classList.remove("hidden");
+    return;
+  }
+
+  toast(id ? "Product updated" : "Product created", "ok");
+  closeModal();
+  loadProducts();
+}
+
+// ----------------------------------------------------------------- reviews
+function renderReviewsFieldset(p) {
+  const reviews = (p.reviews || []).slice().sort((a, b) => (a.review_date < b.review_date ? 1 : -1));
+  return `
+    <fieldset>
+      <legend>Reviews (${reviews.length})</legend>
+      <div id="reviews-list">
+        ${reviews.length ? reviews.map(r => `
+          <div class="review-row" data-review-id="${esc(r.id)}">
+            <div class="rmeta">
+              <b>${esc(r.author)}</b> <span class="rstars">${"★".repeat(r.rating)}${"☆".repeat(5 - r.rating)}</span>
+              <div>${esc(r.comment)}</div>
+              <div style="color:var(--ink-soft);font-size:11px">${esc(r.review_date)}</div>
+            </div>
+            <button type="button" class="btn btn-danger btn-sm" data-delete-review="${esc(r.id)}">Delete</button>
+          </div>
+        `).join("") : `<p class="hint" style="margin-top:0">No reviews yet.</p>`}
+      </div>
+      <div class="review-add-row">
+        <div>
+          <label>New review — author &amp; comment</label>
+          <input type="text" id="new-review-author" placeholder="Author name">
+        </div>
+        <div>
+          <label>Rating</label>
+          <select id="new-review-rating">
+            <option value="5">5</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+            <option value="2">2</option>
+            <option value="1">1</option>
+          </select>
+        </div>
+        <div>
+          <button type="button" class="btn btn-secondary btn-sm" id="add-review-btn" style="width:100%">+ Add</button>
+        </div>
+      </div>
+      <textarea id="new-review-comment" rows="2" placeholder="Review comment…" style="margin-top:8px"></textarea>
+    </fieldset>
+  `;
+}
+
+function wireReviewHandlers(p) {
+  document.querySelectorAll("[data-delete-review]").forEach(btn => {
+    btn.addEventListener("click", () => deleteReview(btn.dataset.deleteReview, p.id));
+  });
+  const addBtn = document.getElementById("add-review-btn");
+  if (addBtn) {
+    addBtn.addEventListener("click", () => addReview(p.id));
+  }
+}
+
+async function addReview(productId) {
+  const author = document.getElementById("new-review-author").value.trim();
+  const rating = Number(document.getElementById("new-review-rating").value);
+  const comment = document.getElementById("new-review-comment").value.trim();
+  if (!author || !comment) {
+    toast("Add an author and comment before saving the review.", "err");
+    return;
+  }
+  const id = "r-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const { error } = await supabase.from("product_reviews").insert({
+    id,
+    product_id: productId,
+    author,
+    rating,
+    review_date: new Date().toISOString().slice(0, 10),
+    comment,
+  });
+  if (error) {
+    toast("Couldn't add review: " + error.message, "err");
+    return;
+  }
+  toast("Review added", "ok");
+  await loadProducts();
+  openProductModal(productId);
+}
+
+async function deleteReview(reviewId, productId) {
+  if (!confirm("Delete this review?")) return;
+  const { error } = await supabase.from("product_reviews").delete().eq("id", reviewId);
+  if (error) {
+    toast("Couldn't delete review: " + error.message, "err");
+    return;
+  }
+  toast("Review deleted", "ok");
+  await loadProducts();
+  openProductModal(productId);
+}
+
+// onAuthStateChange (registered above) handles initial load automatically.
+</script>
+</body>
+</html>
