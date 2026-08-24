@@ -359,6 +359,115 @@
   .toast.ok{background:var(--ok)}
   .toast.err{background:var(--danger)}
 
+  /* ---------- Photo upload grid ---------- */
+  .photo-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
+    gap:10px;
+    margin-bottom:12px;
+  }
+  .photo-thumb{
+    position:relative;
+    border:1px solid var(--border);
+    border-radius:8px;
+    overflow:hidden;
+    aspect-ratio:1/1;
+    background:var(--stone);
+  }
+  .photo-thumb img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .photo-thumb.is-primary{border:2px solid var(--dye-deep)}
+  .photo-thumb .primary-badge{
+    position:absolute;
+    top:4px;
+    left:4px;
+    background:var(--dye-deep);
+    color:#fff;
+    font-size:9px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    font-weight:700;
+    padding:2px 6px;
+    border-radius:4px;
+  }
+  .photo-thumb .legacy-chip{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:100%;
+    padding:6px;
+    font-size:10px;
+    text-align:center;
+    color:var(--ink-soft);
+    word-break:break-word;
+    line-height:1.3;
+  }
+  .photo-thumb .thumb-controls{
+    position:absolute;
+    inset:0;
+    background:linear-gradient(to top, rgba(0,0,0,0.55), transparent 45%);
+    opacity:0;
+    transition:opacity .15s;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    padding:4px;
+  }
+  .photo-thumb:hover .thumb-controls,
+  .photo-thumb:focus-within .thumb-controls{opacity:1}
+  .thumb-controls .top-row{display:flex;justify-content:flex-end}
+  .thumb-controls .bottom-row{display:flex;justify-content:space-between;align-items:flex-end}
+  .thumb-btn{
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    border:none;
+    background:rgba(255,255,255,0.9);
+    color:var(--ink);
+    font-size:12px;
+    line-height:1;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .thumb-btn:hover{background:#fff}
+  .thumb-btn.remove-btn{background:rgba(179,38,30,0.9);color:#fff}
+  .thumb-btn.remove-btn:hover{background:var(--danger)}
+  .thumb-btn.make-primary-btn{
+    position:absolute;
+    bottom:4px;
+    left:4px;
+    right:4px;
+    width:auto;
+    height:auto;
+    border-radius:4px;
+    font-size:10px;
+    padding:4px 2px;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+  }
+  .photo-upload-zone{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    aspect-ratio:1/1;
+    border:2px dashed var(--border);
+    border-radius:8px;
+    color:var(--ink-soft);
+    font-size:11px;
+    text-align:center;
+    cursor:pointer;
+    padding:8px;
+    background:var(--cream);
+  }
+  .photo-upload-zone:hover{border-color:var(--dye-deep);color:var(--dye-deep)}
+  .photo-upload-zone.uploading{opacity:.6;pointer-events:none}
+
   /* ---------- Mobile (phone) ---------- */
   @media (max-width: 640px){
     main{padding:16px}
@@ -375,6 +484,8 @@
     .review-add-row{grid-template-columns:1fr}
     .toast{max-width:calc(100vw - 32px)}
     #toast-wrap{left:16px;right:16px;bottom:16px}
+    .photo-grid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}
+    .photo-thumb .thumb-controls{opacity:1;background:linear-gradient(to top, rgba(0,0,0,0.6), transparent 55%)}
   }
 </style>
 </head>
@@ -435,7 +546,6 @@
   <div id="modal-root"></div>
 
   <!-- datalist option pools, populated at runtime -->
-  <datalist id="photo-keys"></datalist>
   <datalist id="category-values"></datalist>
   <datalist id="collection-values"></datalist>
   <datalist id="material-values"></datalist>
@@ -449,28 +559,15 @@ const SUPABASE_URL = "https://subrpdkevbynozzxszwo.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_LRFyJTbNRt1IykR6b8r8Mg_42s34kzy";
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-// Known image keys already baked into the storefront's code. Photos are not
-// stored in Supabase — these are just the lookup keys the live site already
-// knows how to render. Picking one of these here will show correctly on the
-// site; typing something new will not show an image until that image is
-// added to the site's code separately.
-const KNOWN_PHOTO_KEYS = [
-  "innerCap","magneticStud","nonSnagPin","shadowJersey","paddedPrayerMat","pashminaScarf",
-  "printedChiffon","regularPrayerMat","rhinestoneBrooch","scarfHanger","crinkleScarf",
-  "adireChiffon","twoInOneJersey","alQuran","armSleeve","cottonPleated","counter","giftBox",
-  "heartBrooch","hookPin","uaeJerseyScarf","chiffonScarf","danglingPin","discPin","jerseyScarf",
-  "popcornScarf","crinkleScarfPhoto2","crinkleScarfPhoto3","hookPinPhoto2","innerCapPhoto2",
-  "jerseyScarfPhoto2","leopardScarf","magneticStudPhoto2","nonSnagPinPhoto2","nonSnagPinPhoto3",
-  "ombreScarf","shadowJerseyPhoto2","pashminaScarfPhoto2","pashminaScarfPhoto3","pashminaScarfPhoto4",
-  "twoInOneJerseyPhoto2","cashmereScarf","chiffonScarfPhoto2","chiffonScarfPhoto3",
-  "chiffonScarfBundlePhoto","chiffonScarfPhoto4","vintageScarf","vintageScarfPhoto2",
-  "printedScarfNew","printedScarfNewPhoto2","armSleevePhoto2","thickArmSleeve","straightDiscPin"
-];
+// Supabase Storage bucket product photos are uploaded to. Must exist and be
+// public — see 05_product_images_storage.sql.
+const STORAGE_BUCKET = "product-images";
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB soft guard against huge phone-camera originals
+
 const KNOWN_CATEGORIES = ["Accessories","Al-Qurans","Arm Sleeves","Inner Caps","Prayer Mats","Scarves"];
 const KNOWN_COLLECTIONS = ["Earth Tones","Everyday","Finishing Touches","Jewel Tones","The Marble Edit"];
 const KNOWN_MATERIALS = ["Cashmere","Chiffon","Cotton Voile","Mixed","Silk"];
 
-document.getElementById("photo-keys").innerHTML = KNOWN_PHOTO_KEYS.map(k => `<option value="${k}">`).join("");
 document.getElementById("category-values").innerHTML = KNOWN_CATEGORIES.map(k => `<option value="${k}">`).join("");
 document.getElementById("collection-values").innerHTML = KNOWN_COLLECTIONS.map(k => `<option value="${k}">`).join("");
 document.getElementById("material-values").innerHTML = KNOWN_MATERIALS.map(k => `<option value="${k}">`).join("");
@@ -669,9 +766,138 @@ async function deleteProduct(id) {
 }
 
 // ----------------------------------------------------------- product modal
+// ------------------------------------------------------------- photo upload
+let formPhotos = [];      // ordered array of Storage public URLs (or legacy keys) for the product being edited
+let formProductId = null; // stable id used for both the upload path and the eventual insert/update
+
+function isPhotoUrl(value) {
+  return /^https?:\/\//.test(value || "");
+}
+
+function storagePathFromUrl(url) {
+  const marker = `/object/public/${STORAGE_BUCKET}/`;
+  const idx = (url || "").indexOf(marker);
+  return idx === -1 ? null : url.slice(idx + marker.length);
+}
+
+function renderPhotoGrid() {
+  const grid = document.getElementById("photo-grid");
+  if (!grid) return;
+  grid.innerHTML = formPhotos.map((url, i) => {
+    const primary = i === 0;
+    if (isPhotoUrl(url)) {
+      return `
+        <div class="photo-thumb ${primary ? "is-primary" : ""}">
+          ${primary ? `<span class="primary-badge">Primary</span>` : ""}
+          <img src="${esc(url)}" alt="Product photo ${i + 1}" loading="lazy">
+          <div class="thumb-controls">
+            <div class="top-row">
+              <button type="button" class="thumb-btn remove-btn" data-remove="${i}" title="Remove">✕</button>
+            </div>
+            <div class="bottom-row">
+              <button type="button" class="thumb-btn" data-move="${i}:-1" title="Move earlier" ${i === 0 ? "disabled style=visibility:hidden" : ""}>‹</button>
+              <button type="button" class="thumb-btn" data-move="${i}:1" title="Move later" ${i === formPhotos.length - 1 ? "disabled style=visibility:hidden" : ""}>›</button>
+            </div>
+            ${!primary ? `<button type="button" class="thumb-btn make-primary-btn" data-primary="${i}">★ Make primary</button>` : ""}
+          </div>
+        </div>`;
+    }
+    // Legacy built-in image key (from before uploads existed) — no URL to preview.
+    return `
+      <div class="photo-thumb ${primary ? "is-primary" : ""}">
+        ${primary ? `<span class="primary-badge">Primary</span>` : ""}
+        <div class="legacy-chip">Built-in image:<br>"${esc(url)}"</div>
+        <div class="thumb-controls">
+          <div class="top-row">
+            <button type="button" class="thumb-btn remove-btn" data-remove="${i}" title="Remove">✕</button>
+          </div>
+          <div class="bottom-row">
+            <button type="button" class="thumb-btn" data-move="${i}:-1" title="Move earlier" ${i === 0 ? "disabled style=visibility:hidden" : ""}>‹</button>
+            <button type="button" class="thumb-btn" data-move="${i}:1" title="Move later" ${i === formPhotos.length - 1 ? "disabled style=visibility:hidden" : ""}>›</button>
+          </div>
+          ${!primary ? `<button type="button" class="thumb-btn make-primary-btn" data-primary="${i}">★ Make primary</button>` : ""}
+        </div>
+      </div>`;
+  }).join("") + `<label class="photo-upload-zone" id="photo-upload-zone" for="f-photo-upload">+ Add<br>photo</label>`;
+
+  grid.querySelectorAll("[data-remove]").forEach(btn => {
+    btn.addEventListener("click", () => removePhotoAt(Number(btn.dataset.remove)));
+  });
+  grid.querySelectorAll("[data-primary]").forEach(btn => {
+    btn.addEventListener("click", () => setPrimaryPhoto(Number(btn.dataset.primary)));
+  });
+  grid.querySelectorAll("[data-move]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const [idx, dir] = btn.dataset.move.split(":").map(Number);
+      movePhoto(idx, dir);
+    });
+  });
+}
+
+function setPrimaryPhoto(index) {
+  const [item] = formPhotos.splice(index, 1);
+  formPhotos.unshift(item);
+  renderPhotoGrid();
+}
+
+function movePhoto(index, direction) {
+  const target = index + direction;
+  if (target < 0 || target >= formPhotos.length) return;
+  [formPhotos[index], formPhotos[target]] = [formPhotos[target], formPhotos[index]];
+  renderPhotoGrid();
+}
+
+async function removePhotoAt(index) {
+  const [url] = formPhotos.splice(index, 1);
+  renderPhotoGrid();
+  const path = storagePathFromUrl(url);
+  if (path) {
+    // Best-effort cleanup — don't block the UI on this.
+    supabase.storage.from(STORAGE_BUCKET).remove([path]).catch(() => {});
+  }
+}
+
+async function handlePhotoUpload(fileList) {
+  const files = [...fileList];
+  if (!files.length) return;
+  const zone = document.getElementById("photo-upload-zone");
+  if (zone) { zone.classList.add("uploading"); zone.textContent = "Uploading…"; }
+
+  for (const file of files) {
+    if (!file.type.startsWith("image/")) {
+      toast(`Skipped "${file.name}" — not an image file.`, "err");
+      continue;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast(`Skipped "${file.name}" — larger than 10MB.`, "err");
+      continue;
+    }
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = `${formProductId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type,
+    });
+    if (error) {
+      toast(`Upload failed for "${file.name}": ${error.message}`, "err");
+      continue;
+    }
+    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+    formPhotos.push(data.publicUrl);
+  }
+
+  renderPhotoGrid();
+}
+
 function openProductModal(id) {
   const isEdit = !!id;
   const p = isEdit ? allProducts.find(x => x.id === id) : null;
+
+  formProductId = isEdit ? id : "p-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  formPhotos = isEdit
+    ? (Array.isArray(p.photos) && p.photos.length ? p.photos.slice() : (p.photo ? [p.photo] : []))
+    : [];
 
   const root = document.getElementById("modal-root");
   root.innerHTML = `
@@ -751,11 +977,10 @@ function openProductModal(id) {
 
           <fieldset>
             <legend>Photos</legend>
-            <label>Primary photo key</label>
-            <input type="text" id="f-photo" list="photo-keys" required value="${esc(p?.photo)}">
-            <label>Gallery photo keys (comma-separated, optional)</label>
-            <input type="text" id="f-photos" value="${esc(arrToText(p?.photos))}">
-            <p class="hint">These must match an image key already built into the site's code — pick from the suggestions. Typing a brand-new key won't show an image until that photo is added to the site separately.</p>
+            <div class="photo-grid" id="photo-grid"></div>
+            <input type="file" id="f-photo-upload" accept="image/*" multiple style="display:none">
+            <button type="button" class="btn btn-secondary btn-sm" id="upload-photos-btn">+ Upload Product Photos</button>
+            <p class="hint" style="margin-top:10px">The photo marked Primary is the main image shown on the site. Use the arrows to reorder, the star to change the primary photo, and × to remove one.</p>
           </fieldset>
 
           <fieldset>
@@ -797,6 +1022,15 @@ function openProductModal(id) {
   });
   document.getElementById("product-form").addEventListener("submit", (e) => saveProduct(e, id));
 
+  renderPhotoGrid();
+  document.getElementById("upload-photos-btn").addEventListener("click", () => {
+    document.getElementById("f-photo-upload").click();
+  });
+  document.getElementById("f-photo-upload").addEventListener("change", (e) => {
+    handlePhotoUpload(e.target.files);
+    e.target.value = ""; // allow re-selecting the same file later
+  });
+
   if (isEdit) wireReviewHandlers(p);
 }
 
@@ -808,6 +1042,12 @@ async function saveProduct(e, id) {
   e.preventDefault();
   const errBox = document.getElementById("modal-error");
   errBox.classList.add("hidden");
+
+  if (!formPhotos.length) {
+    errBox.textContent = "Please upload at least one product photo.";
+    errBox.classList.remove("hidden");
+    return;
+  }
 
   const payload = {
     is_active: document.getElementById("f-active").checked,
@@ -822,8 +1062,8 @@ async function saveProduct(e, id) {
     color_name: document.getElementById("f-colorname").value.trim(),
     color_hex: document.getElementById("f-colorhex").value.trim(),
     color_hex_dark: document.getElementById("f-colorhexdark").value.trim(),
-    photo: document.getElementById("f-photo").value.trim(),
-    photos: (() => { const arr = textToArr(document.getElementById("f-photos").value); return arr.length ? arr : null; })(),
+    photo: formPhotos[0],
+    photos: formPhotos.length > 1 ? formPhotos.slice() : null,
     dimensions: document.getElementById("f-dimensions").value.trim(),
     care: textToArr(document.getElementById("f-care").value),
     description: document.getElementById("f-description").value.trim(),
@@ -839,7 +1079,7 @@ async function saveProduct(e, id) {
   if (id) {
     ({ error } = await supabase.from("products").update(payload).eq("id", id));
   } else {
-    payload.id = "p-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    payload.id = formProductId;
     ({ error } = await supabase.from("products").insert(payload));
   }
 
