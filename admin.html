@@ -857,11 +857,48 @@ async function removePhotoAt(index) {
   }
 }
 
+let bucketReady = false; // cached after the first successful check this session
+
+async function ensureBucketReady() {
+  if (bucketReady) return { ok: true };
+
+  // Already exists? Nothing to do.
+  const { data: existing, error: getErr } = await supabase.storage.getBucket(STORAGE_BUCKET);
+  if (existing && !getErr) {
+    bucketReady = true;
+    return { ok: true };
+  }
+
+  // Doesn't exist yet — try to create it automatically. This only succeeds
+  // if the one-time grant in 06_auto_bucket_setup.sql has been run; if not,
+  // we surface a clear, specific message instead of a generic upload error.
+  const { error: createErr } = await supabase.storage.createBucket(STORAGE_BUCKET, {
+    public: true,
+    fileSizeLimit: MAX_UPLOAD_BYTES,
+  });
+  if (!createErr) {
+    bucketReady = true;
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    message: "Photo storage hasn't been set up yet. Run 06_auto_bucket_setup.sql once in the Supabase SQL Editor, then try uploading again.",
+  };
+}
+
 async function handlePhotoUpload(fileList) {
   const files = [...fileList];
   if (!files.length) return;
   const zone = document.getElementById("photo-upload-zone");
   if (zone) { zone.classList.add("uploading"); zone.textContent = "Uploading…"; }
+
+  const ready = await ensureBucketReady();
+  if (!ready.ok) {
+    if (zone) { zone.classList.remove("uploading"); zone.innerHTML = "+ Add<br>photo"; }
+    toast(ready.message, "err");
+    return;
+  }
 
   for (const file of files) {
     if (!file.type.startsWith("image/")) {
@@ -889,6 +926,7 @@ async function handlePhotoUpload(fileList) {
 
   renderPhotoGrid();
 }
+
 
 function openProductModal(id) {
   const isEdit = !!id;
