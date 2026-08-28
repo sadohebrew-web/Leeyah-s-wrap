@@ -559,10 +559,14 @@ const SUPABASE_URL = "https://subrpdkevbynozzxszwo.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_LRFyJTbNRt1IykR6b8r8Mg_42s34kzy";
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-// Supabase Storage bucket product photos are uploaded to. Must exist and be
-// public — see 05_product_images_storage.sql.
-const STORAGE_BUCKET = "product-images";
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB soft guard against huge phone-camera originals
+// Product photos are stored directly in the products table (as compressed
+// data-URL text), not in Supabase Storage — so there's no bucket, key, or
+// separate file host to set up. This mirrors how the site's original
+// built-in product photos are stored, just in the database instead of the
+// site's code.
+const MAX_SOURCE_BYTES = 25 * 1024 * 1024; // soft guard against absurd source files before we even try to read them
+const PHOTO_MAX_DIMENSION = 1000;          // longest edge, px, after resizing
+const PHOTO_JPEG_QUALITY = 0.74;
 
 const KNOWN_CATEGORIES = ["Accessories","Al-Qurans","Arm Sleeves","Inner Caps","Prayer Mats","Scarves"];
 const KNOWN_COLLECTIONS = ["Earth Tones","Everyday","Finishing Touches","Jewel Tones","The Marble Edit"];
@@ -767,17 +771,11 @@ async function deleteProduct(id) {
 
 // ----------------------------------------------------------- product modal
 // ------------------------------------------------------------- photo upload
-let formPhotos = [];      // ordered array of Storage public URLs (or legacy keys) for the product being edited
-let formProductId = null; // stable id used for both the upload path and the eventual insert/update
+let formPhotos = [];      // ordered array of data-URL strings (or legacy built-in keys) for the product being edited
+let formProductId = null; // stable id used at insert time
 
 function isPhotoUrl(value) {
-  return /^https?:\/\//.test(value || "");
-}
-
-function storagePathFromUrl(url) {
-  const marker = `/object/public/${STORAGE_BUCKET}/`;
-  const idx = (url || "").indexOf(marker);
-  return idx === -1 ? null : url.slice(idx + marker.length);
+  return /^(https?:\/\/|data:)/.test(value || "");
 }
 
 function renderPhotoGrid() {
@@ -847,81 +845,59 @@ function movePhoto(index, direction) {
   renderPhotoGrid();
 }
 
-async function removePhotoAt(index) {
-  const [url] = formPhotos.splice(index, 1);
+function removePhotoAt(index) {
+  formPhotos.splice(index, 1);
   renderPhotoGrid();
-  const path = storagePathFromUrl(url);
-  if (path) {
-    // Best-effort cleanup — don't block the UI on this.
-    supabase.storage.from(STORAGE_BUCKET).remove([path]).catch(() => {});
-  }
 }
 
-let bucketReady = false; // cached after the first successful check this session
-
-async function ensureBucketReady() {
-  if (bucketReady) return { ok: true };
-
-  // Already exists? Nothing to do.
-  const { data: existing, error: getErr } = await supabase.storage.getBucket(STORAGE_BUCKET);
-  if (existing && !getErr) {
-    bucketReady = true;
-    return { ok: true };
-  }
-
-  // Doesn't exist yet — try to create it automatically. This only succeeds
-  // if the one-time grant in 06_auto_bucket_setup.sql has been run; if not,
-  // we surface a clear, specific message instead of a generic upload error.
-  const { error: createErr } = await supabase.storage.createBucket(STORAGE_BUCKET, {
-    public: true,
-    fileSizeLimit: MAX_UPLOAD_BYTES,
+// Reads an image file, scales it down to a reasonable size, and returns a
+// compressed JPEG data URL — no network call, no external host. This is
+// what gets saved straight into the product's row in Supabase.
+function fileToCompressedDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Couldn't read the file."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Couldn't decode that image."));
+      img.onload = () => {
+        const scale = Math.min(1, PHOTO_MAX_DIMENSION / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", PHOTO_JPEG_QUALITY));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
   });
-  if (!createErr) {
-    bucketReady = true;
-    return { ok: true };
-  }
-
-  return {
-    ok: false,
-    message: "Photo storage hasn't been set up yet. Run 06_auto_bucket_setup.sql once in the Supabase SQL Editor, then try uploading again.",
-  };
 }
 
 async function handlePhotoUpload(fileList) {
   const files = [...fileList];
   if (!files.length) return;
   const zone = document.getElementById("photo-upload-zone");
-  if (zone) { zone.classList.add("uploading"); zone.textContent = "Uploading…"; }
-
-  const ready = await ensureBucketReady();
-  if (!ready.ok) {
-    if (zone) { zone.classList.remove("uploading"); zone.innerHTML = "+ Add<br>photo"; }
-    toast(ready.message, "err");
-    return;
-  }
+  if (zone) { zone.classList.add("uploading"); zone.textContent = "Processing…"; }
 
   for (const file of files) {
     if (!file.type.startsWith("image/")) {
       toast(`Skipped "${file.name}" — not an image file.`, "err");
       continue;
     }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      toast(`Skipped "${file.name}" — larger than 10MB.`, "err");
+    if (file.size > MAX_SOURCE_BYTES) {
+      toast(`Skipped "${file.name}" — that file is too large.`, "err");
       continue;
     }
-    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-    const path = `${formProductId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: file.type,
-    });
-    if (error) {
-      toast(`Upload failed for "${file.name}": ${error.message}`, "err");
-      continue;
+    try {
+      const dataUrl = await fileToCompressedDataUrl(file);
+      formPhotos.push(dataUrl);
+    } catch (err) {
+      toast(`Couldn't process "${file.name}": ${err.message}`, "err");
     }
-    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-    formPhotos.push(data.publicUrl);
   }
 
   renderPhotoGrid();
