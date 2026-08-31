@@ -565,8 +565,27 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 // built-in product photos are stored, just in the database instead of the
 // site's code.
 const MAX_SOURCE_BYTES = 25 * 1024 * 1024; // soft guard against absurd source files before we even try to read them
-const PHOTO_MAX_DIMENSION = 1000;          // longest edge, px, after resizing
-const PHOTO_JPEG_QUALITY = 0.74;
+const PHOTO_MAX_DIMENSION = 900;           // longest edge, px, after resizing — kept modest so saved rows stay well under any API payload limit
+const PHOTO_JPEG_QUALITY = 0.68;
+const MIN_VALID_DATA_URL_LENGTH = 200;     // a real compressed photo is always far longer than this; anything shorter means the encode failed
+
+function isValidPhotoValue(value) {
+  if (!value || typeof value !== "string") return false;
+  if (value.startsWith("data:")) {
+    // Must be a genuine, non-empty image data URL — not just anything
+    // starting with "data:" (a failed canvas export can produce the
+    // literal string "data:,", which must NOT be treated as valid).
+    if (!value.startsWith("data:image/")) return false;
+    const commaIdx = value.indexOf(",");
+    if (commaIdx === -1) return false;
+    const payload = value.slice(commaIdx + 1);
+    return value.length > MIN_VALID_DATA_URL_LENGTH && payload.length > 50;
+  }
+  if (/^https?:\/\//.test(value)) return true;
+  // Legacy short key from before uploads existed (e.g. "crinkleScarf").
+  // Explicitly NOT anything starting with "data:" — already handled above.
+  return value.length > 0 && value.length < 200;
+}
 
 const KNOWN_CATEGORIES = ["Accessories","Al-Qurans","Arm Sleeves","Inner Caps","Prayer Mats","Scarves"];
 const KNOWN_COLLECTIONS = ["Earth Tones","Everyday","Finishing Touches","Jewel Tones","The Marble Edit"];
@@ -858,9 +877,17 @@ function fileToCompressedDataUrl(file) {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("Couldn't read the file."));
     reader.onload = () => {
+      if (!reader.result || typeof reader.result !== "string") {
+        reject(new Error("Couldn't read the file."));
+        return;
+      }
       const img = new Image();
       img.onerror = () => reject(new Error("Couldn't decode that image."));
       img.onload = () => {
+        if (!img.width || !img.height) {
+          reject(new Error("That file doesn't look like a valid image."));
+          return;
+        }
         const scale = Math.min(1, PHOTO_MAX_DIMENSION / Math.max(img.width, img.height));
         const w = Math.max(1, Math.round(img.width * scale));
         const h = Math.max(1, Math.round(img.height * scale));
@@ -868,8 +895,23 @@ function fileToCompressedDataUrl(file) {
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("This browser couldn't process the image."));
+          return;
+        }
         ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", PHOTO_JPEG_QUALITY));
+        let dataUrl;
+        try {
+          dataUrl = canvas.toDataURL("image/jpeg", PHOTO_JPEG_QUALITY);
+        } catch (err) {
+          reject(new Error("This browser couldn't export the image."));
+          return;
+        }
+        if (!isValidPhotoValue(dataUrl)) {
+          reject(new Error("Image processing produced an empty result — try a different photo."));
+          return;
+        }
+        resolve(dataUrl);
       };
       img.src = reader.result;
     };
@@ -883,6 +925,7 @@ async function handlePhotoUpload(fileList) {
   const zone = document.getElementById("photo-upload-zone");
   if (zone) { zone.classList.add("uploading"); zone.textContent = "Processing…"; }
 
+  let addedCount = 0;
   for (const file of files) {
     if (!file.type.startsWith("image/")) {
       toast(`Skipped "${file.name}" — not an image file.`, "err");
@@ -894,12 +937,18 @@ async function handlePhotoUpload(fileList) {
     }
     try {
       const dataUrl = await fileToCompressedDataUrl(file);
+      if (!isValidPhotoValue(dataUrl)) {
+        toast(`Couldn't process "${file.name}" — the result was empty. Try again.`, "err");
+        continue;
+      }
       formPhotos.push(dataUrl);
+      addedCount++;
     } catch (err) {
       toast(`Couldn't process "${file.name}": ${err.message}`, "err");
     }
   }
 
+  if (addedCount > 0) toast(`Added ${addedCount} photo${addedCount > 1 ? "s" : ""}.`, "ok");
   renderPhotoGrid();
 }
 
@@ -910,7 +959,7 @@ function openProductModal(id) {
 
   formProductId = isEdit ? id : "p-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   formPhotos = isEdit
-    ? (Array.isArray(p.photos) && p.photos.length ? p.photos.slice() : (p.photo ? [p.photo] : []))
+    ? (Array.isArray(p.photos) && p.photos.length ? p.photos.slice() : (p.photo ? [p.photo] : [])).filter(isValidPhotoValue)
     : [];
 
   const root = document.getElementById("modal-root");
@@ -1062,6 +1111,11 @@ async function saveProduct(e, id) {
     errBox.classList.remove("hidden");
     return;
   }
+  if (formPhotos.some(p => !isValidPhotoValue(p))) {
+    errBox.textContent = "One of the photos didn't process correctly. Remove it (✕) and upload it again before saving.";
+    errBox.classList.remove("hidden");
+    return;
+  }
 
   const payload = {
     is_active: document.getElementById("f-active").checked,
@@ -1089,12 +1143,23 @@ async function saveProduct(e, id) {
   btn.disabled = true;
   btn.textContent = "Saving…";
 
-  let error;
+  let error, savedRow;
   if (id) {
-    ({ error } = await supabase.from("products").update(payload).eq("id", id));
+    const res = await supabase.from("products").update(payload).eq("id", id).select("id,photo,photos").single();
+    error = res.error;
+    savedRow = res.data;
   } else {
     payload.id = formProductId;
-    ({ error } = await supabase.from("products").insert(payload));
+    const res = await supabase.from("products").insert(payload).select("id,photo,photos").single();
+    error = res.error;
+    savedRow = res.data;
+  }
+
+  // The write can succeed at the database level but still not actually
+  // contain a usable photo — verify what's really in the row we just wrote,
+  // not just that the request didn't error.
+  if (!error && (!savedRow || !isValidPhotoValue(savedRow.photo))) {
+    error = { message: "The save went through, but the photo didn't come back correctly. Please try uploading it again." };
   }
 
   btn.disabled = false;
@@ -1110,6 +1175,7 @@ async function saveProduct(e, id) {
   closeModal();
   loadProducts();
 }
+
 
 // ----------------------------------------------------------------- reviews
 function renderReviewsFieldset(p) {
